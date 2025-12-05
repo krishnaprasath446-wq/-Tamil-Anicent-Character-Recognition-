@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Kalvettu - Vatteluthu OCR</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        .card {
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease-in-out;
+        }
+        .btn-predict {
+            background-color: #4f46e5;
+            color: white;
+            transition: background-color 0.3s;
+        }
+        .btn-predict:hover {
+            background-color: #4338ca;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4f46e5;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+    <div class="card w-full max-w-lg p-8 mx-4">
+        <div class="text-center">
+            <h1 class="text-3xl font-bold text-gray-800">Project Kalvettu</h1>
+            <p class="mt-2 text-gray-600">8th Century Vatteluthu Character Recognition</p>
+        </div>
+
+        <div class="mt-8">
+            <label for="file-upload" class="cursor-pointer block w-full px-4 py-8 text-center border-2 border-dashed border-gray-300 rounded-lg hover:border-indigo-500 transition">
+                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span class="mt-2 block text-sm font-medium text-gray-600">
+                    Click to upload an image
+                </span>
+                <input id="file-upload" name="file-upload" type="file" class="sr-only" accept="image/*">
+            </label>
+        </div>
+
+        <div id="image-preview-container" class="mt-6 text-center hidden">
+            <p class="font-medium text-gray-700 mb-2">Image Preview:</p>
+            <img id="image-preview" src="#" alt="Image preview" class="max-w-xs mx-auto rounded-lg shadow-md bg-gray-100"/>
+        </div>
+
+        <div class="mt-8 text-center">
+            <button id="predict-button" class="btn-predict font-bold py-3 px-8 rounded-lg shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                Recognize Character
+            </button>
+        </div>
+
+        <div id="result-container" class="mt-8 text-center hidden">
+             <div id="loader" class="loader mx-auto hidden"></div>
+            <div id="result-text">
+                <p class="font-medium text-gray-700">Prediction:</p>
+                <p id="predicted-char" class="text-5xl font-bold text-indigo-600 mt-2"></p>
+                <p id="confidence" class="text-sm text-gray-500 mt-1"></p>
+            </div>
+        </div>
+         <div id="error-container" class="mt-6 text-center hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg" role="alert">
+            <strong class="font-bold">Error:</strong>
+            <span id="error-message" class="block sm:inline">Something went wrong.</span>
+        </div>
+    </div>
+
+    <script>
+        const fileUpload = document.getElementById('file-upload');
+        const imagePreviewContainer = document.getElementById('image-preview-container');
+        const imagePreview = document.getElementById('image-preview');
+        const predictButton = document.getElementById('predict-button');
+        const resultContainer = document.getElementById('result-container');
+        const resultText = document.getElementById('result-text');
+        const predictedChar = document.getElementById('predicted-char');
+        const confidence = document.getElementById('confidence');
+        const loader = document.getElementById('loader');
+        const errorContainer = document.getElementById('error-container');
+        const errorMessage = document.getElementById('error-message');
+
+        let uploadedFile = null;
+
+        fileUpload.addEventListener('change', (event) => {
+            const files = event.target.files;
+            if (files && files.length > 0) {
+                uploadedFile = files[0];
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imagePreview.src = e.target.result;
+                    imagePreviewContainer.classList.remove('hidden');
+                    predictButton.disabled = false;
+                    resultContainer.classList.add('hidden');
+                    errorContainer.classList.add('hidden');
+                };
+                reader.readAsDataURL(uploadedFile);
+            }
+        });
+
+        
+    predictButton.addEventListener('click', async () => {
+        if (!uploadedFile) return;
+
+        // ... (code for showing the loader) ...
+
+        const formData = new FormData();
+        formData.append('file', uploadedFile);
+
+        try {
+            const response = await fetch('http://127.0.0.1:8000/predict', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error(`Server responded with status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            // --- THIS IS THE DEBUGGING LINE ---
+            console.log("Data received from server:", data); // Add this line!
+
+            if(data.error) {
+                throw new Error(data.error);
+            }
+
+            // This ensures you are accessing the correct property from the JSON
+            predictedChar.textContent = data.predicted_character;
+            confidence.textContent = `Confidence: ${data.confidence}`;
+            resultText.classList.remove('hidden');
+
+        } catch (error) {
+            // ... (error handling code is the same) ...
+        } finally {
+            // ... (code to hide loader) ...
+        }
+    });
+    </script>
+</body>
+</html>
